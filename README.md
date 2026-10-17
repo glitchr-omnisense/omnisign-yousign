@@ -1,7 +1,7 @@
 # omnisign/yousign
 
 **Yousign** - Youtrust since the company's new name - for
-[glitchr/omnisign](https://github.com/glitchr-studio/omnisign): simple, advanced and qualified
+[omniscient/omnisign](https://github.com/glitchr-studio/omnisign): simple, advanced and qualified
 electronic signatures (eIDAS) through its public API v3, by e-mail or in the application's page.
 
 ```php
