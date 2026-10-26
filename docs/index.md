@@ -1,9 +1,11 @@
----
-title: omnisign/yousign
-order: 1
----
-
 # omnisign/yousign
+
+Yousign (Youtrust since its new name) for [omnisense/omnisign](https://github.com/glitchr-omnisense/omnisign):
+simple, advanced and qualified electronic signatures, by e-mail or in the application's page,
+through Yousign's public API v3 on `https://api.yousign.app/v3` (`Api::URL`), or
+`https://api-sandbox.yousign.app/v3` with `sandbox: true` (`Api::SANDBOX_URL`; signatures without
+legal value). Every call carries `Authorization: Bearer <api key>`; JSON both ways, a multipart
+upload for documents.
 
 ## Installation
 
@@ -21,6 +23,11 @@ Yousign's developer site, now `developers.youtrust.com` ("Youtrust Public API v3
 cancel, send_reminder, documents/download, audit_trails/download), and the guides "Webhooks" and
 "Handling Webhooks". The API keeps Yousign's hosts (`api.yousign.app/v3`,
 `api-sandbox.yousign.app/v3`) and headers (`X-Yousign-Signature-256`).
+
+## Credentials
+
+- An **API key** from Yousign's app (the sandbox's is free; its signatures have no legal value).
+- For webhooks, a **subscription** created in Yousign's app, and its secret (`webhook_secret`).
 
 ## Options
 
@@ -63,6 +70,77 @@ cancel, send_reminder, documents/download, audit_trails/download), and the guide
 | `expired` | `EXPIRED` | | `declined` | `DECLINED` |
 | `canceled`, `deleted` | `CANCELED` | | `aborted`, `error` | `FAILED` |
 
+## Capabilities
+
+| Request | Supported |
+|---|---|
+| `Create`, `Send`, `Fetch`, `Remind`, `Cancel`, `Download`, `SigningUrl` | yes |
+| `Notify` | with `webhook_secret` |
+
+`capabilities()`: simple, advanced, qualified; in the page; ordered; identity check; third party;
+documents; no templates. `Envelope::$message` and `Signer::$role` are not sent; `SigningUrl`'s
+`returnUrl` is not read (the envelope's `redirectUrl` is each signer's success redirection). A
+signer's `signedAt` is not read from Yousign's answers: it stays null.
+
+## Example
+
+```php
+<?php
+
+require __DIR__.'/vendor/autoload.php';
+
+use Omnisign\Model\Document;
+use Omnisign\Model\Envelope;
+use Omnisign\Model\Field;
+use Omnisign\Model\FieldType;
+use Omnisign\Model\File;
+use Omnisign\Model\Level;
+use Omnisign\Model\Signer;
+use Omnisign\Yousign\YousignGatewayFactory;
+use Symfony\Component\HttpClient\HttpClient;
+
+$yousign = (new YousignGatewayFactory(HttpClient::create()))->create(['api_key' => getenv('YOUSIGN_API_KEY'), 'sandbox' => true]);
+
+$envelope = $yousign->create(new Envelope(
+    'Bail - 12 rue des Juifs',
+    documents: [new Document('lease', File::fromPath('lease.pdf'))],
+    signers: [new Signer('landlord', 'Marie-Anne de La Tour', 'landlord@example.org', '+33612345678')],
+    fields: [new Field('landlord', 'lease', FieldType::SIGNATURE, page: 2, x: 77, y: 581)],
+    level: Level::ADVANCED,
+    redirectUrl: 'https://site.example/lease/42/signed',
+    key: 'lease-42',
+));
+$envelope = $yousign->send($envelope);        // ongoing: the signer is notified
+$envelope = $yousign->fetch($envelope);       // later: done
+$download = $yousign->download($envelope);    // the signed PDF and the audit trail
+```
+
+The same calls were run on 2026-10-26 on a `MockHttpClient` serving this package's fixtures (the
+requests, their bodies and the answers: [Envelopes](https://github.com/glitchr-omnisense/omnisign/blob/1.x/docs/usage-envelopes.md#create-then-send));
+Yousign itself was not called. In Symfony:
+
+```yaml
+omnisign:
+    gateways:
+        qualified:
+            factory: yousign
+            options:
+                api_key: '%env(YOUSIGN_API_KEY)%'
+                sandbox: '%env(bool:YOUSIGN_SANDBOX)%'
+                webhook_secret: '%env(default::YOUSIGN_WEBHOOK_SECRET)%'
+```
+
+## Errors
+
+| Answer | Exception |
+|---|---|
+| 401, 403 | `InvalidKeyException` (`The API key was refused (HTTP 403): ...`) |
+| other 4xx | `ProviderException` (`<METHOD> <path>: HTTP 400, <detail> (<param>: <reason>; ...)`, `providerCode` the status) |
+| 5xx, 429, no answer, a timeout (10 s) | `UnreachableException` |
+| no signature link for the signer | `ProviderException` |
+| no document or no signer, an `authentication` other than email, sms, none, a field type other than signature, mention, text, a field on no document | `InvalidConfigException`, before any call |
+| a webhook that does not hold | `InvalidNotificationException` |
+
 ## Verified, and not
 
 | | |
@@ -70,3 +148,11 @@ cancel, send_reminder, documents/download, audit_trails/download), and the guide
 | Against Yousign | **not verified in real: no account** (the sandbox needs one). The answers in `Tests/Fixtures` are written from the OpenAPI's schemas |
 | The calls, their bodies, the multipart upload, the webhook's signature | by the tests, against the OpenAPI and the webhook guide |
 | Advanced and qualified signatures | the level is sent; the identity checks happen on Yousign's side, not observed |
+
+The package's tests (`Tests/YousignGatewayTest.php`, 6 tests) pass on 2026-10-26 (PHP 8.4).
+
+## Responsibility
+
+This package is an independent, unofficial client: it is not affiliated with, endorsed by or
+sponsored by Yousign (Youtrust). Whoever runs it complies with
+[youtrust.com/terms](https://youtrust.com/terms); see the README's Responsibility section.
