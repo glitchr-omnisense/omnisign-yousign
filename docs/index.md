@@ -11,7 +11,7 @@ order: 1
 composer require omnisign/yousign
 ```
 
-PHP 8.2 or later, `omniscient/omnisign` and `symfony/http-client`. An API key from Yousign's app
+PHP 8.2 or later, `omnisense/omnisign` and `symfony/http-client`. An API key from Yousign's app
 (sandbox: free, without legal value).
 
 ## The sources
