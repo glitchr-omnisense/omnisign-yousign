@@ -156,3 +156,16 @@ The package's tests (`Tests/YousignGatewayTest.php`, 6 tests) pass on 2026-10-26
 This package is an independent, unofficial client: it is not affiliated with, endorsed by or
 sponsored by Yousign (Youtrust). Whoever runs it complies with
 [youtrust.com/terms](https://youtrust.com/terms); see the README's Responsibility section.
+
+## Next steps: identity verification
+
+Yousign verifies identities in its own API too, beside signatures - the family's `identity-check`
+contract (omnisense/omnisign 1.1, [Identity checks](https://github.com/glitchr-omnisense/omnisign/blob/1.x/docs/usage-identity.md))
+could be carried here. Seen in Yousign's developer site on 2026-11-10, not implemented:
+
+- `POST /verifications/identity_documents` attaches an identity document verification to an
+  applicant (with video identification and company verifications beside it), its outcome announced by
+  the webhook `verification.identity_document.done`; Yousign has renamed these endpoints and
+  parameters recently - read the current reference before writing it;
+- `POST /signature_requests/{id}/signers/{signerId}/identity_verification` verifies a signer's
+  document before an advanced signature (AES), and an earlier verification can be reused for it.
