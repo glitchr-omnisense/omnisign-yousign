@@ -2,6 +2,7 @@
 
 namespace Omnisign\Yousign;
 
+use Omnisense\Contracts\Policy\UsagePolicy;
 use Omnisign\Config;
 use Omnisign\GatewayFactory;
 use Omnisign\Model\Capabilities;
@@ -29,8 +30,22 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  */
 final class YousignGatewayFactory extends GatewayFactory
 {
+    private static ?UsagePolicy $policy = null;
+
     public function __construct(private readonly ?HttpClientInterface $http = null)
     {
+    }
+
+    /** Its usage policy, as policy.json declares it (read once). */
+    public static function usagePolicy(): UsagePolicy
+    {
+        return self::$policy ??= UsagePolicy::fromFile(__DIR__.'/policy.json');
+    }
+
+    /** In the sandbox, its usage policy with the sandbox's own limits. */
+    public static function sandboxPolicy(): UsagePolicy
+    {
+        return self::usagePolicy()->tighten(['rateLimits' => [['max' => 30, 'window' => 'minute', 'scope' => 'key', 'note' => 'Sandbox: 30 requests a minute'], ['max' => 200, 'window' => 'hour', 'scope' => 'key', 'note' => 'Sandbox: 200 requests an hour']]]);
     }
 
     protected function populateConfig(Config $config): void
@@ -42,12 +57,13 @@ final class YousignGatewayFactory extends GatewayFactory
             'sandbox' => false,
             'webhook_secret' => null,
             'url' => null,
-            'omnisign.capabilities' => new Capabilities([Level::SIMPLE, Level::ADVANCED, Level::QUALIFIED], embedded: true, ordered: true, identityCheck: true, thirdParty: true),
+            'omnisign.capabilities' => static fn (Config $c) => new Capabilities([Level::SIMPLE, Level::ADVANCED, Level::QUALIFIED], embedded: true, ordered: true, identityCheck: true, thirdParty: true, policy: $c->bool('sandbox') ? self::sandboxPolicy() : self::usagePolicy()),
             'omnisign.api' => fn (Config $c) => new Api(
                 $this->http ?? HttpClient::create(),
                 (string) $c['api_key'],
                 rtrim((string) ($c->get('url') ?: ($c->bool('sandbox') ? Api::SANDBOX_URL : Api::URL)), '/'),
                 $c->get('webhook_secret') ?: null,
+                $c->backoff(),
             ),
             'omnisign.action.create' => new CreateAction(),
             'omnisign.action.send' => new SendAction(),

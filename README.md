@@ -20,6 +20,13 @@ account.**
 [Documentation](docs/index.md): the options, how an envelope becomes a signature request, levels
 and authentication, the webhooks, what was verified.
 
+## Usage policy
+
+`policy.json`, read on 2026-11-10 in Youtrust's (formerly Yousign) [rate limits](https://developers.youtrust.com/reference/rate-limits)
+and [limits](https://developers.youtrust.com/docs/limits-new): 60 requests a minute and 1,200 an hour in
+production, 30 and 200 in the sandbox (declared when `sandbox` is true), every endpoint; a paid API
+plan. A 429 holds the gateway's next calls.
+
 ## Responsibility
 
 This package is an independent, unofficial client: it is not affiliated with, endorsed by or

@@ -2,6 +2,7 @@
 
 namespace Omnisign\Yousign;
 
+use Omnisense\Contracts\Policy\Backoff;
 use Omnisign\Exception\InvalidKeyException;
 use Omnisign\Exception\InvalidNotificationException;
 use Omnisign\Exception\ProviderException;
@@ -41,6 +42,7 @@ final class Api
         #[\SensitiveParameter] private readonly string $apiKey,
         public readonly string $url = self::URL,
         #[\SensitiveParameter] private readonly ?string $webhookSecret = null,
+        private readonly ?Backoff $backoff = null,
     ) {
     }
 
@@ -93,7 +95,7 @@ final class Api
     private function call(string $method, string $path, array $options): Answer
     {
         $options['headers'] = ['Authorization' => 'Bearer '.$this->apiKey] + ($options['headers'] ?? []);
-        $answer = Answer::send($this->http, self::PROVIDER, $method, $this->url.$path, $options);
+        $answer = Answer::send($this->http, self::PROVIDER, $method, $this->url.$path, $options, $this->backoff);
         if (\in_array($answer->status, [401, 403], true)) {
             throw new InvalidKeyException(self::PROVIDER, \sprintf('The API key was refused (HTTP %d): %s', $answer->status, self::error($answer)), (string) $answer->status);
         }

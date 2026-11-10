@@ -1,0 +1,40 @@
+{
+    "$schema": "https://github.com/glitchr-omnisense/contracts/blob/1.x/resources/usage-policy.schema.json",
+    "provider": "yousign",
+    "rateLimits": [
+        {
+            "max": 60,
+            "window": "minute",
+            "scope": "key",
+            "note": "Production: 60 requests a minute on every endpoint (sandbox: 30; the factory declares the sandbox's figures when sandbox is true)"
+        },
+        {
+            "max": 1200,
+            "window": "hour",
+            "scope": "key",
+            "note": "Production: 1,200 requests an hour on every endpoint (sandbox: 200)"
+        }
+    ],
+    "rights": {
+        "commercial": "contract",
+        "openSourceRequired": null,
+        "caching": {
+            "permission": "unknown"
+        },
+        "storage": "unknown",
+        "redistribution": "unknown",
+        "attribution": {
+            "required": false
+        }
+    },
+    "requirements": {
+        "key": true
+    },
+    "provenance": {
+        "terms": "https://yousign.com/fr-fr/mentions",
+        "policy": "https://developers.youtrust.com/reference/rate-limits",
+        "notes": "Yousign is now Youtrust (developers.yousign.com redirects to developers.youtrust.com). Limits: 60 a minute and 1,200 an hour in production, 30 and 200 in the sandbox, per minute and per hour on all endpoints, plus 100 signature requests activated a day in the sandbox during the API trial; higher limits on request. Each answer carries x-ratelimit-limit-minute, x-ratelimit-remaining-minute, x-ratelimit-limit-hour, x-ratelimit-remaining-hour and Ratelimit-Reset (seconds to the minute's reset); a 429 says \"Too many requests\". Other quotas (developers.youtrust.com/docs/limits-new): 50 MB a document, 50 documents, 100 signers (5 in the sandbox trial), 10 approvers, 500 fields per signature request; a signature_link lasts 48 hours by default. Commercial use: under a paid API plan (a subscription contract); the current Conditions Générales d'Abonnement et d'Utilisation were not readable online, so storage, caching and redistribution stay unknown and no attribution is known to be required. Price: per plan, not read.",
+        "verifiedAt": "2026-11-10",
+        "declaredBy": "maintainer"
+    }
+}
