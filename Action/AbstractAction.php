@@ -9,6 +9,7 @@ use Omnisign\Model\Envelope;
 use Omnisign\Model\SignerState;
 use Omnisign\Model\Status;
 use Omnisign\Yousign\Api;
+use Omnisign\Yousign\Data;
 
 /** An action on Yousign's API v3. */
 abstract class AbstractAction implements ActionInterface, ApiAwareInterface
@@ -36,21 +37,24 @@ abstract class AbstractAction implements ActionInterface, ApiAwareInterface
                 $byReference[$state->reference] = $key;
             }
         }
+        $answer = Data::of($request);
         foreach ((array) ($request['signers'] ?? []) as $signer) {
-            $key = $byReference[$signer['id'] ?? ''] ?? null;
+            $signer = Data::of($signer);
+            $id = $signer->get('id') ?? '';
+            $key = \is_string($id) || \is_int($id) ? $byReference[$id] ?? null : null;
             if (null === $key) {
                 continue;
             }
             $old = $states[$key];
-            $status = Api::SIGNER_STATUSES[$signer['status'] ?? ''] ?? $old->status;
-            $states[$key] = new SignerState($key, $old->reference, $status, $old->signedAt, $signer['signature_link'] ?? $old->link, isset($signer['signature_link_expiration_date']) ? new \DateTimeImmutable($signer['signature_link_expiration_date']) : $old->linkExpiresAt, $old->reason);
+            $status = Api::SIGNER_STATUSES[$signer->text('status')] ?? $old->status;
+            $states[$key] = new SignerState($key, $old->reference, $status, $old->signedAt, $signer->textOrNull('signature_link') ?? $old->link, $signer->moment('signature_link_expiration_date') ?? $old->linkExpiresAt, $old->reason);
         }
 
         return $envelope->with(
-            reference: (string) ($request['id'] ?? $envelope->reference),
-            status: Api::STATUSES[$request['status'] ?? ''] ?? Status::UNKNOWN,
+            reference: $answer->textOrNull('id') ?? (string) $envelope->reference,
+            status: Api::STATUSES[$answer->text('status')] ?? Status::UNKNOWN,
             states: $states,
-            completedAt: isset($request['completed_at']) ? new \DateTimeImmutable($request['completed_at']) : null,
+            completedAt: $answer->moment('completed_at'),
             data: $request,
         );
     }

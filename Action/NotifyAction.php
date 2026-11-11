@@ -6,6 +6,7 @@ use Omnisign\Model\Event;
 use Omnisign\Model\Notification;
 use Omnisign\Request\Notify;
 use Omnisign\Request\Request;
+use Omnisign\Yousign\Data;
 
 /** A webhook's call: X-Yousign-Signature-256 checked, event_name read. */
 final class NotifyAction extends AbstractAction
@@ -31,15 +32,17 @@ final class NotifyAction extends AbstractAction
     {
         \assert($request instanceof Notify);
         $payload = $this->api->verify($request->body, $request->header('X-Yousign-Signature-256'));
-        $type = (string) ($payload['event_name'] ?? '');
-        $data = (array) ($payload['data'] ?? []);
+        $read = Data::of($payload);
+        $type = $read->text('event_name');
+        $data = Data::of((array) ($payload['data'] ?? []));
+        $time = $read->textOrNull('event_time');
         $request->setResult(new Notification(
             self::EVENTS[$type] ?? Event::OTHER,
             $type,
-            $data['signature_request']['id'] ?? null,
-            $data['signer']['id'] ?? null,
-            isset($payload['event_time']) && ctype_digit((string) $payload['event_time']) ? new \DateTimeImmutable('@'.$payload['event_time']) : null,
-            $payload['event_id'] ?? null,
+            $data->data('signature_request')->textOrNull('id'),
+            $data->data('signer')->textOrNull('id'),
+            null !== $time && ctype_digit($time) ? new \DateTimeImmutable('@'.$time) : null,
+            $read->textOrNull('event_id'),
             $payload,
         ));
     }

@@ -60,9 +60,9 @@ final class YousignGatewayFactory extends GatewayFactory
             'omnisign.capabilities' => static fn (Config $c) => new Capabilities([Level::SIMPLE, Level::ADVANCED, Level::QUALIFIED], embedded: true, ordered: true, identityCheck: true, thirdParty: true, policy: $c->bool('sandbox') ? self::sandboxPolicy() : self::usagePolicy()),
             'omnisign.api' => fn (Config $c) => new Api(
                 $this->http ?? HttpClient::create(),
-                (string) $c['api_key'],
-                rtrim((string) ($c->get('url') ?: ($c->bool('sandbox') ? Api::SANDBOX_URL : Api::URL)), '/'),
-                $c->get('webhook_secret') ?: null,
+                Data::cast($c['api_key']),
+                rtrim(Data::cast($c->get('url') ?: ($c->bool('sandbox') ? Api::SANDBOX_URL : Api::URL)), '/'),
+                Data::cast($c->get('webhook_secret')) ?: null,
                 $c->backoff(),
             ),
             'omnisign.action.create' => new CreateAction(),

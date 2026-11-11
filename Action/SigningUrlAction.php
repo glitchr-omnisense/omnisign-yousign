@@ -7,6 +7,7 @@ use Omnisign\Exception\ProviderException;
 use Omnisign\Model\SigningUrl;
 use Omnisign\Request\Request;
 use Omnisign\Request\SigningUrl as SigningUrlRequest;
+use Omnisign\Yousign\Data;
 
 /**
  * A signer's signature_link, as GET .../signers lists it - given for an
@@ -23,10 +24,11 @@ final class SigningUrlAction extends AbstractAction
     {
         \assert($request instanceof SigningUrlRequest);
         $envelope = $request->envelope;
-        $reference = $envelope->state($request->signer)?->reference ?? throw new InvalidConfigException(\sprintf('The signer "%s" was not created on Yousign with this envelope.', $request->signer));
+        $reference = $envelope->state($request->signer)->reference ?? throw new InvalidConfigException(\sprintf('The signer "%s" was not created on Yousign with this envelope.', $request->signer));
         foreach ($this->api->json('GET', '/signature_requests/'.$envelope->reference().'/signers') as $signer) {
-            if (\is_array($signer) && ($signer['id'] ?? null) === $reference && !empty($signer['signature_link'])) {
-                $request->setResult(new SigningUrl((string) $signer['signature_link'], isset($signer['signature_link_expiration_date']) ? new \DateTimeImmutable($signer['signature_link_expiration_date']) : null));
+            $signer = Data::of($signer);
+            if ($signer->get('id') === $reference && !empty($signer->get('signature_link'))) {
+                $request->setResult(new SigningUrl($signer->text('signature_link'), $signer->moment('signature_link_expiration_date')));
 
                 return;
             }

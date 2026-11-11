@@ -3,7 +3,6 @@
 namespace Omnisign\Yousign\Action;
 
 use Omnisign\Exception\InvalidConfigException;
-use Omnisign\Model\Document;
 use Omnisign\Model\Field;
 use Omnisign\Model\FieldType;
 use Omnisign\Model\Level;
@@ -11,6 +10,7 @@ use Omnisign\Model\SignerState;
 use Omnisign\Model\SignerStatus;
 use Omnisign\Request\Create;
 use Omnisign\Request\Request;
+use Omnisign\Yousign\Data;
 
 /**
  * A signature request in four calls: the request (POST /signature_requests),
@@ -46,13 +46,12 @@ final class CreateAction extends AbstractAction
             'timezone' => $envelope->expiresAt?->getTimezone()->getName() === 'UTC' ? null : $envelope->expiresAt?->getTimezone()->getName(),
             'external_id' => $envelope->key,
         ], static fn ($v) => null !== $v));
-        $id = (string) $created['id'];
+        $id = Data::of($created)->text('id');
 
         $documents = [];
         foreach ($envelope->documents as $document) {
-            \assert($document instanceof Document);
             $uploaded = $this->api->upload("/signature_requests/$id/documents", $document->file->content, $document->file->filename, $document->file->mimeType, $document->signable);
-            $documents[$document->key] = (string) $uploaded['id'];
+            $documents[$document->key] = Data::of($uploaded)->text('id');
         }
 
         $signers = $envelope->signers;
@@ -69,7 +68,7 @@ final class CreateAction extends AbstractAction
                 'fields' => array_map(fn (Field $f) => $this->field($f, $documents), $envelope->fieldsOf($signer->key)),
                 'redirect_urls' => null !== $envelope->redirectUrl ? ['success' => $envelope->redirectUrl] : null,
             ], static fn ($v) => null !== $v));
-            $states[$signer->key] = new SignerState($signer->key, (string) $added['id'], SignerStatus::WAITING);
+            $states[$signer->key] = new SignerState($signer->key, Data::of($added)->text('id'), SignerStatus::WAITING);
         }
 
         $request->setResult(self::read($envelope->with(states: $states, documentReferences: $documents), $created));

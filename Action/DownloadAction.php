@@ -2,6 +2,7 @@
 
 namespace Omnisign\Yousign\Action;
 
+use Omnisign\Http\Answer;
 use Omnisign\Model\Download;
 use Omnisign\Model\File;
 use Omnisign\Request\Download as DownloadRequest;
@@ -25,7 +26,7 @@ final class DownloadAction extends AbstractAction
         $several = \count($request->envelope->documents) > 1;
         $signed = $this->api->download("/signature_requests/$id/documents/download", ['version' => 'completed', 'archive' => $several ? 'true' : 'false']);
         $trail = $this->api->download("/signature_requests/$id/audit_trails/download", ['merge' => 'true']);
-        $type = static fn ($answer, string $default) => strtok((string) ($answer->header('content-type') ?? $default), ';');
+        $type = static fn (Answer $answer, string $default): string => (string) strtok($answer->header('content-type') ?? $default, ';');
         $request->setResult(new Download(
             [new File($signed->body, $several ? 'signed-documents.zip' : ($request->envelope->documents[0]->file->filename ?? 'signed.pdf'), $type($signed, $several ? 'application/zip' : 'application/pdf'))],
             new File($trail->body, 'audit-trail.pdf', $type($trail, 'application/pdf')),

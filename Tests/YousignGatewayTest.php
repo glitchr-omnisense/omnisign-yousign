@@ -18,6 +18,7 @@ use Omnisign\Model\Signer;
 use Omnisign\Model\SignerStatus;
 use Omnisign\Model\Status;
 use Omnisign\Request\Notify;
+use Omnisign\Yousign\Data;
 use Omnisign\Yousign\YousignGatewayFactory;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpClient\MockHttpClient;
@@ -32,10 +33,13 @@ final class YousignGatewayTest extends TestCase
 {
     private const ID = '9a2b1c3d-0e4f-4a5b-8c6d-7e8f9a0b1c2d';
 
-    /** @var list<array{string, string, array<string, mixed>}> */
+    /** @var list<array{string, string, array<array-key, mixed>}> */
     private array $calls = [];
 
-    /** @param list<string|MockResponse> $answers */
+    /**
+     * @param list<string|MockResponse> $answers
+     * @param array<string, mixed>      $options
+     */
     private function gateway(array $answers, array $options = []): GatewayInterface
     {
         $http = new MockHttpClient(function (string $method, string $url, array $options) use (&$answers): MockResponse {
@@ -70,7 +74,10 @@ final class YousignGatewayTest extends TestCase
     /** @return array<string, mixed> */
     private function body(int $call): array
     {
-        return json_decode((string) $this->calls[$call][2]['body'], true);
+        $body = json_decode(Data::cast($this->calls[$call][2]['body'] ?? null), true);
+        self::assertIsArray($body);
+
+        return Data::map($body);
     }
 
     public function testASignatureRequestIsBuiltInFourCallsThenActivated(): void
@@ -82,11 +89,11 @@ final class YousignGatewayTest extends TestCase
         self::assertSame(['landlord' => '5e1a0b2c-3d4e-4f5a-8b6c-7d8e9f0a1b2c', 'tenant' => '6f2b1c3d-4e5f-4a6b-9c7d-8e9f0a1b2c3d'], array_map(static fn ($s) => $s->reference, $created->states));
         self::assertSame(['POST', 'https://api-sandbox.yousign.app/v3/signature_requests'], [$this->calls[0][0], $this->calls[0][1]]);
         self::assertSame(['name' => 'Bail - Maison Érable', 'delivery_mode' => 'none', 'ordered_signers' => true, 'expiration_date' => '2026-11-07', 'timezone' => 'Europe/Paris', 'external_id' => 'lease-42'], $this->body(0));
-        self::assertStringContainsString('Authorization: Bearer ys-api-key', implode("\n", $this->calls[0][2]['headers']));
+        self::assertStringContainsString('Authorization: Bearer ys-api-key', implode("\n", Data::texts($this->calls[0][2]['headers'] ?? [])));
 
         self::assertSame('https://api-sandbox.yousign.app/v3/signature_requests/'.self::ID.'/documents', $this->calls[1][1]);
-        self::assertStringContainsString("name=\"nature\"\r\n\r\nsignable_document\r\n", (string) $this->calls[1][2]['body']);
-        self::assertStringContainsString("filename=\"bail.pdf\"\r\nContent-Type: application/pdf\r\n\r\n%PDF-1.7 lease\r\n", (string) $this->calls[1][2]['body']);
+        self::assertStringContainsString("name=\"nature\"\r\n\r\nsignable_document\r\n", Data::cast($this->calls[1][2]['body'] ?? null));
+        self::assertStringContainsString("filename=\"bail.pdf\"\r\nContent-Type: application/pdf\r\n\r\n%PDF-1.7 lease\r\n", Data::cast($this->calls[1][2]['body'] ?? null));
 
         $tenant = $this->body(3);
         self::assertSame(['first_name' => 'Camille', 'last_name' => 'Érable', 'email' => 'camille@erable.example', 'locale' => 'fr'], $tenant['info']);
@@ -97,7 +104,7 @@ final class YousignGatewayTest extends TestCase
         ], $tenant['fields']);
 
         $sent = $gateway->send($created);
-        self::assertSame([Status::SENT, SignerStatus::NOTIFIED, 'https://yousign.app/signatures/9a2b1c3d?s=landlord-token'], [$sent->status, $sent->state('landlord')->status, $sent->state('landlord')->link]);
+        self::assertSame([Status::SENT, SignerStatus::NOTIFIED, 'https://yousign.app/signatures/9a2b1c3d?s=landlord-token'], [$sent->status, $sent->state('landlord')?->status, $sent->state('landlord')?->link]);
         self::assertSame('https://api-sandbox.yousign.app/v3/signature_requests/'.self::ID.'/activate', $this->calls[4][1]);
     }
 
@@ -127,10 +134,10 @@ final class YousignGatewayTest extends TestCase
         self::assertSame('https://api-sandbox.yousign.app/v3/signature_requests/'.self::ID.'/signers/5e1a0b2c-3d4e-4f5a-8b6c-7d8e9f0a1b2c/send_reminder', $this->calls[6][1], 'the one asked who has not signed - not the one waiting for their turn');
 
         $done = $gateway->fetch($sent);
-        self::assertSame([Status::COMPLETED, SignerStatus::SIGNED, '2026-10-09T17:30:00+00:00'], [$done->status, $done->state('tenant')->status, $done->completedAt?->format(\DATE_ATOM)]);
+        self::assertSame([Status::COMPLETED, SignerStatus::SIGNED, '2026-10-09T17:30:00+00:00'], [$done->status, $done->state('tenant')?->status, $done->completedAt?->format(\DATE_ATOM)]);
         $canceled = $gateway->cancel($sent, 'Changed our minds');
-        self::assertSame([Status::CANCELED, SignerStatus::FAILED], [$canceled->status, $canceled->state('tenant')->status]);
-        self::assertSame(['reason' => 'other', 'custom_note' => 'Changed our minds'], json_decode((string) $this->calls[8][2]['body'], true));
+        self::assertSame([Status::CANCELED, SignerStatus::FAILED], [$canceled->status, $canceled->state('tenant')?->status]);
+        self::assertSame(['reason' => 'other', 'custom_note' => 'Changed our minds'], json_decode(Data::cast($this->calls[8][2]['body'] ?? null), true));
     }
 
     public function testTheSignedDocumentAndTheAuditTrail(): void

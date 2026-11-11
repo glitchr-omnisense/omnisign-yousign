@@ -66,7 +66,11 @@ final class Api
         return $this->call('POST', $path, ['headers' => ['Content-Type' => $multipart['contentType']], 'body' => $multipart['body']])->json();
     }
 
-    /** A file: a PDF, or a ZIP when several. */
+    /**
+     * A file: a PDF, or a ZIP when several.
+     *
+     * @param array<string, string> $query
+     */
     public function download(string $path, array $query = []): Answer
     {
         return $this->call('GET', $path, ['query' => $query, 'headers' => ['Accept' => 'application/pdf, application/zip']]);
@@ -88,13 +92,13 @@ final class Api
         }
         $data = json_decode($body, true);
 
-        return \is_array($data) ? $data : throw new InvalidNotificationException(self::PROVIDER, 'The callback is not JSON.');
+        return \is_array($data) ? Data::map($data) : throw new InvalidNotificationException(self::PROVIDER, 'The callback is not JSON.');
     }
 
     /** @param array<string, mixed> $options */
     private function call(string $method, string $path, array $options): Answer
     {
-        $options['headers'] = ['Authorization' => 'Bearer '.$this->apiKey] + ($options['headers'] ?? []);
+        $options['headers'] = ['Authorization' => 'Bearer '.$this->apiKey] + Data::map($options['headers'] ?? []);
         $answer = Answer::send($this->http, self::PROVIDER, $method, $this->url.$path, $options, $this->backoff);
         if (\in_array($answer->status, [401, 403], true)) {
             throw new InvalidKeyException(self::PROVIDER, \sprintf('The API key was refused (HTTP %d): %s', $answer->status, self::error($answer)), (string) $answer->status);
@@ -112,8 +116,9 @@ final class Api
         if (!\is_array($error)) {
             return mb_substr(trim($answer->body), 0, 200) ?: 'no detail';
         }
-        $invalid = array_map(static fn ($p) => \is_array($p) ? ($p['name'] ?? '?').': '.($p['reason'] ?? '') : (string) $p, (array) ($error['invalid_params'] ?? []));
+        $invalid = array_map(static fn ($p) => \is_array($p) ? (Data::of($p)->textOrNull('name') ?? '?').': '.Data::of($p)->text('reason') : Data::cast($p), (array) ($error['invalid_params'] ?? []));
+        $error = Data::of($error);
 
-        return trim(($error['detail'] ?? $error['title'] ?? $error['type'] ?? 'an error').($invalid ? ' ('.implode('; ', $invalid).')' : ''));
+        return trim(($error->textOrNull('detail') ?? $error->textOrNull('title') ?? $error->textOrNull('type') ?? 'an error').($invalid ? ' ('.implode('; ', $invalid).')' : ''));
     }
 }
