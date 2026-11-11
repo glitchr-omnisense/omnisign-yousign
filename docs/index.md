@@ -58,8 +58,20 @@ cancel, send_reminder, documents/download, audit_trails/download), and the guide
 | `QUALIFIED` | `qualified_electronic_signature` |
 
 `Signer::$authentication`: `email` → `otp_email`, `sms` → `otp_sms` (a phone needed), `none` →
-`no_otp`. Fields: `SIGNATURE`, `MENTION` (`mention`: "Lu et approuvé" unless the field's label),
-`TEXT`; Yousign places no `INITIALS` nor `DATE` field with a signer - such an envelope is refused.
+`no_otp`. Fields: `SIGNATURE`, `MENTION` (`mention`: "Lu et approuvé" unless the field's label -
+**written by Yousign** when the signer signs, 255 characters at most: the signer does not type it),
+`TEXT` (`question`: the label; `max_length`: the field's `maxLength`, else 255); Yousign places no
+`INITIALS` nor `DATE` field with a signer - such an envelope is refused.
+
+Statements (since omnisign 1.2; Yousign's API v3 OpenAPI, `developers.youtrust.com/openapi/public-api-v3.json`,
+read 2026-11-11 - Yousign's developer site now answers under youtrust.com):
+
+| Mode | Yousign | Limit |
+|---|---|---|
+| typed | a signer's `text` field: `instruction` the statement (no length stated), `question` the label (255 at most, "Mention" by default), `max_length` the statement's length and a fifth more | `max_length` 1 to **32767** characters |
+| acknowledged | a document's `read_only_text` (`POST /signature_requests/{id}/documents/{documentId}/fields`, before the signers): `text` the statement | **5000** characters |
+
+A statement longer than its limit is refused before any call.
 
 | Yousign | Status | | Signer | SignerStatus |
 |---|---|---|---|---|

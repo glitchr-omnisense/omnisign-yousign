@@ -16,6 +16,8 @@ use Omnisign\Model\File;
 use Omnisign\Model\Level;
 use Omnisign\Model\Signer;
 use Omnisign\Model\SignerStatus;
+use Omnisign\Model\StatementLimit;
+use Omnisign\Model\StatementMode;
 use Omnisign\Model\Status;
 use Omnisign\Request\Notify;
 use Omnisign\Yousign\Data;
@@ -106,6 +108,43 @@ final class YousignGatewayTest extends TestCase
         $sent = $gateway->send($created);
         self::assertSame([Status::SENT, SignerStatus::NOTIFIED, 'https://yousign.app/signatures/9a2b1c3d?s=landlord-token'], [$sent->status, $sent->state('landlord')?->status, $sent->state('landlord')?->link]);
         self::assertSame('https://api-sandbox.yousign.app/v3/signature_requests/'.self::ID.'/activate', $this->calls[4][1]);
+    }
+
+    public function testAStatementTheSignerTypesOrAcknowledgesWithYousignsLimits(): void
+    {
+        $mention = 'En me portant caution de Camille Érable, dans la limite de la somme de 25 000 euros couvrant le paiement du principal, des intérêts et, le cas échéant, des pénalités ou intérêts de retard et pour la durée de neuf ans, je m\'engage à rembourser au prêteur les sommes dues sur mes revenus et mes biens si Camille Érable n\'y satisfait pas elle-même.';
+        $acknowledged = 'Je reconnais avoir reçu un exemplaire du bail et de ses annexes.';
+        $capabilities = $this->gateway([])->capabilities();
+        self::assertGreaterThan(255, mb_strlen($mention));
+        self::assertTrue($capabilities->fits($mention, StatementMode::TYPED));
+        self::assertSame([32767, StatementLimit::CHARACTERS], [$capabilities->statement()?->maxLength, $capabilities->statement()?->unit]);
+        self::assertSame(5000, $capabilities->statement(StatementMode::ACKNOWLEDGED)?->maxLength);
+        self::assertFalse($capabilities->fits(str_repeat('x', 5001), StatementMode::ACKNOWLEDGED));
+
+        $gateway = $this->gateway(['signature-request-draft:201', 'document:201', 'read-only-text:201', 'signer-tenant:201']);
+        $gateway->create(new Envelope('Acte de cautionnement', [new Document('deed', new File('%PDF-1.7 deed', 'caution.pdf'))], [new Signer('surety', 'Camille Érable', 'camille@erable.example')], [
+            Field::forStatement('surety', 'deed', $mention, page: 4, x: 60, y: 300, width: 480, height: 120, label: 'Mention de la caution'),
+            Field::forStatement('surety', 'deed', $acknowledged, StatementMode::ACKNOWLEDGED, 4, 60, 120, 480, 90),
+            new Field('surety', 'deed', FieldType::TEXT, 4, 60, 500, label: 'Ville', maxLength: 600),
+            new Field('surety', 'deed', page: 4, x: 60, y: 650),
+        ]));
+
+        self::assertSame('https://api-sandbox.yousign.app/v3/signature_requests/'.self::ID.'/documents/d0c1a2b3-c4d5-4e6f-8a7b-9c0d1e2f3a4b/fields', $this->calls[2][1]);
+        self::assertSame(['type' => 'read_only_text', 'page' => 4, 'x' => 60, 'y' => 120, 'width' => 480, 'height' => 90, 'text' => $acknowledged], $this->body(2));
+        $fields = $this->body(3)['fields'];
+        self::assertIsArray($fields);
+        self::assertSame(['document_id' => 'd0c1a2b3-c4d5-4e6f-8a7b-9c0d1e2f3a4b', 'page' => 4, 'x' => 60, 'y' => 300, 'type' => 'text', 'question' => 'Mention de la caution', 'instruction' => $mention, 'max_length' => (int) ceil(mb_strlen($mention) * 1.2), 'optional' => false, 'width' => 480, 'height' => 120], $fields[0]);
+        self::assertSame(600, Data::map($fields[1])['max_length']);
+        self::assertCount(3, $fields, 'the acknowledged statement is the document\'s, not the signer\'s');
+
+        $this->calls = [];
+        try {
+            $this->gateway([])->create(new Envelope('x', [new Document('d', new File('%PDF', 'd.pdf'))], [new Signer('s', 'Solo', 's@example.org')], [Field::forStatement('s', 'd', str_repeat('x', 32768))]));
+            self::fail();
+        } catch (InvalidConfigException $e) {
+            self::assertStringContainsString('32768 characters does not fit', $e->getMessage());
+            self::assertSame([], $this->calls, 'refused before any call');
+        }
     }
 
     public function testLevelsAndAuthentications(): void
