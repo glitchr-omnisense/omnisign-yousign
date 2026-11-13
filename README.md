@@ -20,6 +20,14 @@ account.**
 [Documentation](docs/index.md): the options, how an envelope becomes a signature request, levels
 and authentication, the webhooks, what was verified.
 
+## Install
+
+```sh
+composer require omnisign/yousign
+```
+
+It brings the family's core, `omnisense/omnisign`, and `omnisense/contracts` with it. **A Yousign account and its API key are needed** (a sandbox key for tests). The tests run on recorded answers.
+
 ## Usage policy
 
 `policy.json`, read on 2026-11-10 in Youtrust's (formerly Yousign) [rate limits](https://developers.youtrust.com/reference/rate-limits)
