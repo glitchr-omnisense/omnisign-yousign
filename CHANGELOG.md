@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-11-13
+
+### Changed
+- Neutral example data in docs and tests.
+
 ## [1.0.0] - 2026-11-13
 
 The first stable release. Omnisign Yousign: simple, advanced and qualified electronic signatures through Yousign's public API v3 (Youtrust since its new name) - a signature request built from documents, signers and fields, activated, followed, reminded, cancelled; signing in the application's page; the signed documents and the audit trail; webhooks with their signature checked.

@@ -63,7 +63,7 @@ final class YousignGatewayTest extends TestCase
         return new Envelope(
             'Bail - Maison Érable',
             [new Document('lease', new File('%PDF-1.7 lease', 'bail.pdf'))],
-            [new Signer('landlord', 'Marco Meyer', 'marco@meyers.example', order: 1), new Signer('tenant', 'Camille Érable', 'camille@erable.example', order: 2)],
+            [new Signer('landlord', 'Alex Martin', 'alex@sci-exemple.example', order: 1), new Signer('tenant', 'Camille Érable', 'camille@erable.example', order: 2)],
             [new Field('landlord', 'lease', page: 3, x: 77, y: 581), new Field('tenant', 'lease', page: 3, x: 330, y: 581), new Field('tenant', 'lease', FieldType::MENTION, 3, 330, 650)],
             $level,
             ordered: true,
